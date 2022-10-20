@@ -36,12 +36,7 @@ app.delete("/employees", (req, res) => {
 
 
 ////////////////////CONEXION CON LA BASE DE DATOS (mySQL)
-        mysql en la nube https://www.db4free.net/
-        bd = efripiio_companydeiby
-        user = efripiio_test	
-        pass = muuvEph(!XoX
-        email = deibysoyyo@gmail.com
-        host = 153.92.215.201:3306
+     
 
 1) - instalar modulo MySQL2 para poder conectar con MySQL
         $ npm i mysql2
