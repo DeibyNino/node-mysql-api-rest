@@ -1,0 +1,202 @@
+Nodejs MySQL REST API, Desde cero a Despliegue
+https://www.youtube.com/watch?v=3dSkc-DIM74&t=29&ab_channel=Fazt
+
+
+1) - $ npm init -y
+2) - $ npm i express
+3) - realizar la configuracion import/export de node en el package.json
+        incluir despues del main:index.js
+        "type":"module",
+3) - importtar express
+        import express  from "express";
+
+4) - instancimos el servidor express con su puerto
+
+        const app = express();
+        app.listen(4747);
+
+5) intalamos nodemon $ npm i nodemon -D
+5.1) instancimos nodemon en losscripts del package.json  
+          "dev": "nodemon index.js"
+
+/////////////////CREACION DE ENDPOINTS 
+
+app.get("/employees", (req, res) => {
+  res.send("obteniendo empleados");
+});
+app.post("/employees", (req, res) => {
+  res.send("creando empleados");
+});
+app.put("/employees", (req, res) => {
+  res.send("actualizando empleados");
+});
+app.delete("/employees", (req, res) => {
+  res.send("eliminando empleados");
+});
+
+
+////////////////////CONEXION CON LA BASE DE DATOS (mySQL)
+        mysql en la nube https://www.db4free.net/
+        bd = efripiio_companydeiby
+        user = efripiio_test	
+        pass = muuvEph(!XoX
+        email = deibysoyyo@gmail.com
+        host = 153.92.215.201:3306
+
+1) - instalar modulo MySQL2 para poder conectar con MySQL
+        $ npm i mysql2
+2) en lacarpeta db crear el archivo db.js y crear la instancia de mysql2
+
+        import { createPool } from "mysql2/promise";
+
+        export const pool = createPool({
+        host: "153.92.215.201",
+        user: "efripiio_test",
+        password: "muuvEph(!XoX",
+        port: 3306,
+        database: "efripiio_companydeiby",
+        });
+3) - crear prueba de coneccion en index.js
+        app.get("/ping", async (req, res) => {
+        const [result] = await pool.query("SELECT 1 + 1 AS result");
+        res.json(result);
+        });
+
+
+///////////////////////REACION DE RUTAS - ROUTES
+1)- Crear carpeta routes 
+2)- creacion de los archivos de ruta 
+        employees.routes.js
+
+3)- importamos Router y declaramos la constante router 
+        import { Router } from "express";
+        const router = Router();
+
+4)- se crean las rutas get, post, put, delete y se exporta el router
+        router.get("/employees", (req, res) => {
+        res.send("obteniendo empleados");
+        }); 
+
+        export default router;
+
+5)- se importa el router en el index.js, se le puede colocar el nombre deseado y se utiliza 
+        import employeesRoutes from "./routes/employees.routes.js";
+
+        app.use(employeesRoutes);
+
+//////////////////////AGREGAR CONSTROLLERS
+1)- crear carpeta controllers y crear un archivo employees.controller.js
+2)- se crea un funcion exportable con su respectiva logica 
+        export const getEmployees = (req, res) => {
+        res.send("obteniendo empleados");
+        };
+
+3)- en el archivo employees.route.js se importa y se declara dentro de la ruta 
+        import { getEmployees } from "../controllers/employees.controller.js";
+        router.get("/employees", getEmployees);
+
+/////////////////////AGREGAR CONSULTAS Y REGSITROS EN mySQL
+
+1)- Configurar la lectura de datos en formato JSON
+        en el index.js agregar:
+        app.use(express.json())
+2)- en controller de employees - createEmployees creamos la funcion para ingresar los datos en la DB 
+        const { name, salary } = req.body;
+        const [rows] = await pool.query(
+        "INSERT INTO employee (name,salary) VALUES(?,?)",
+        [name, salary]
+        );
+
+3)- creamos la respuesta de la API
+        res.send({
+                id: rows.insertId,
+                name,
+                salary,
+        });
+
+4) para la consulta de todos los empleados se agrega la consulta en el controller  getEmployees 
+
+        const [rows] = await pool.query("SELECT * FROM employee");
+        res.send(rows);
+
+5)- Para la consulta de un solo usuario se crea una nueva ruta que reciba el id como un parametro
+        router.get("/employees/:id", getEmployee);
+        
+        5.1)- Se crea un nuevo controlador llamado getEmployee y se crea la consulta abstrayendo el id de paramas
+                const id = req.params.id;
+                  const [rows] = await pool.query("SELECT * FROM employee WHERE id = ?", [id]);
+
+        5.2)- se crea un funcion para validar si existen o no empleados con ese id
+                if (rows.length <= 0) {
+                  return res.status(404).json({ message: "Empleado no encontrado" });
+                }
+
+                res.send(rows[0]);
+
+
+6) - Para el DELETE de un usuario muy parecido a la consulta anterior
+
+                const id = req.params.id;
+                const [result] = await pool.query("DELETE FROM employee WHERE id = ?", [id]);
+
+                if (result.affectedRows <= 0) {
+                return res.status(404).json({ message: "Empleado no encontrado" });
+                }
+
+                return res.status(204);
+
+7)- Para actualizar un Usuario 
+                const { id } = req.params;
+                const { name, salary } = req.body;
+
+                const [result] = await pool.query(
+                "UPDATE employee SET name=IFNULL(?, name), salary=IFNULL(?, salary) WHERE id=?",
+                [name, salary, id]
+                );
+
+                if (result.affectedRows === 0) {
+                return res.status(404).json({ message: "Empleado no encontrado" });
+                }
+
+                const [rows] = await pool.query("SELECT * FROM employee WHERE id=?", [id]);
+                return res.json(rows[0]);
+
+
+//////////////////MANEJO DE ERRORES /////////////////////
+1)-  se emplea el try-catch y se setea el tipo de error retornandolo 
+
+        export const getEmployees = async (req, res) => {
+                try {
+                        //throw new Error("Error inesperado"); // para probar el error
+                        const [rows] = await pool.query("SELECT * FROM employee");
+                        res.send(rows);
+                } catch (error) {
+                        return res.status(500).json({
+                        message: "Someting goes wrong",
+                        });
+                }
+        };
+
+///////////////////NOT FOUND ///////////////////////////
+1)- PAra cuando se hace una peticion a una ruta que no existe 
+        se agrega en el index.js 
+
+app.use((req, res, next) => {
+  res.status(404).json({
+    message: "Endpoint no encontrado",
+  });
+});
+
+///////////////MANEJO DE VARIABLES DE ENTORNO/////////
+1)- Intalar dotenv
+        npm i dotenv
+
+2)- crear archivo .env
+3)- En src crea el archivo config.js y en el importe el modulo dotenv
+        import {config} from 'dotenv'
+        config() 
+4)- Se crean las variable para exportar 
+        export const DB_PORT = process.env.DB_PORT || 3306;
+5)- Se importan las variables donde se requieran 
+        import { PORT } from "./config.js";
+        app.listen(PORT);
